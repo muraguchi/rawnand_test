@@ -2,6 +2,11 @@
 
 Raspberry Pi Pico Rawnand test
 
+# Pinouts
+
+https://github.com/muraguchi/rawnand_test/blob/main/RawNAND_Pico_pinout.xlsx
+
+
 # How to compile
 
 ```js
