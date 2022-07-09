@@ -25,6 +25,7 @@
 
 
 
+
 static uint8_t uart_rx_buff[128];
 static uint8_t command_buff[128];
 static uint8_t uart_tx_buff[128];
@@ -132,7 +133,7 @@ int main() {
   // OK, all set up.
   // Lets send a basic string out, and then run a loop and wait for RX interrupts
   // The handler will count them, but also reflect the incoming data back with a slight change!
-  uart_puts(UART_ID, "Raw NAND test\r\n");
+  uart_puts(UART_ID, "Raw NAND test yay\r\n");
   
   uint8_t rxd;
   //uint8_t state=FSM_IDLE;
@@ -156,7 +157,7 @@ int main() {
 	  unsigned int cs=0;
 	  sscanf((const char *)command_buff,"reset %u" ,&cs);
 	  rn.reset(cs);
-	  sprintf((char *)uart_tx_buff,"reset issued at cs%d\r\n",cs);
+	  sprintf((char *)uart_tx_buff,"reset issued yay at cs%d\r\n",cs);
 	  uart_puts(UART_ID,(const char*)uart_tx_buff);
 	} else if ( strlen( (const char *)command_buff)>=2 && memcmp("id",command_buff,2)==0  ){
 	  unsigned int cs=0;
@@ -186,10 +187,181 @@ int main() {
 		    rb[l+12],rb[l+13],rb[l+14],rb[l+15]);
 	    uart_puts(UART_ID,(const char*)uart_tx_buff);
 	  }
+	} else if ( strlen( (const char *)command_buff)>=1 && memcmp("s",command_buff,1)==0 ){
+	  
+	  uint8_t rb;
+	  sprintf((char *)uart_tx_buff,"search bad block\r\n");
+	  uart_puts(UART_ID,(const char*)uart_tx_buff);
+
+	  for (int i_b=0;i_b<1024;i_b++){
+	    rn.pageRead(0,&rb,i_b,0,2048+128-1,1);
+	    if(rb==0){
+	      sprintf((char *)uart_tx_buff,"Bad block address : %d\r\n",i_b);
+	      uart_puts(UART_ID,(const char*)uart_tx_buff);
+	    } else {
+	      //sprintf((char *)uart_tx_buff,"Good block address : %d\r\n",i_b);
+              //uart_puts(UART_ID,(const char*)uart_tx_buff);
+	    }
+	  }
+	} else if ( strlen( (const char *)command_buff)>=3 && memcmp("wpb",command_buff,3)==0 ) {
+	  unsigned int wpb=0;
+	  sscanf((const char *)command_buff,"wpb %u %u" ,&wpb);
+	  sprintf((char *)uart_tx_buff,"set wpb %d\r\n",wpb);
+	  uart_puts(UART_ID,(const char*)uart_tx_buff);
+	  rn.setWriteProtect(wpb);
+	} else if ( strlen( (const char *)command_buff)>=1 && memcmp("p",command_buff,1)==0 ) {
+	  uint8_t wb[2048];
+	  unsigned int cs=0;
+	  unsigned int ba=0;
+	  unsigned int pa=0;
+	  sscanf((const char *)command_buff,"p %u %u %u" ,&cs,&ba,&pa);
+	  sprintf((char *)uart_tx_buff,"page program test %d %d %d\r\n",cs,ba,pa);
+          uart_puts(UART_ID,(const char*)uart_tx_buff);
+	  for (int i=0;i<2048;i++){
+	    wb[i]=i;
+	  }
+	  rn.pageProgram(cs,wb,ba,pa,0,2048);
+	} else if ( strlen( (const char *)command_buff)>=1 && memcmp("e",command_buff,1)==0 ) {
+	  unsigned int cs=0;
+          unsigned int ba=0;
+	  sscanf((const char *)command_buff,"e %u %u" ,&cs,&ba);
+	  sprintf((char *)uart_tx_buff,"erase test %d %d\r\n",cs,ba);
+          uart_puts(UART_ID,(const char*)uart_tx_buff);
+	  rn.erase(cs,ba);
+	} else if ( strlen( (const char *)command_buff)>=6 && memcmp("initbb",command_buff,6)==0 ) {
+	  // Do I have magic number at bad block management address?
+	  
+	  uint8_t buff[256];
+	  uint8_t rb  [1];
+	  int bbm_addr ;
+	  int found_bbm = 0;
+
+	  // bbt table
+	  uint32_t broken_addr[20];
+	  uint32_t replaced_addr[20];
+	  uint32_t bbr_entry = 0;
+	  // init table
+	  for (int i=0;i<20;i++){
+	    broken_addr[i] = 0xffff;
+	    replaced_addr[i] = 0xffff;
+	  }
+
+
+	  for (int i_b = 1020; i_b<1024;i_b++){
+	    rn.pageRead(0,buff,i_b,0,0,4);
+	    if (buff[0]==0x55 && buff[1]==0x55 && buff[2]==0x55 && buff[3]==0x55 ){
+	      bbm_addr = i_b;
+	      found_bbm = 1;
+	      break;
+	    }
+	  }
+
+	  // we have to crate bbm table
+	  if (found_bbm==0){
+	    int end_bbr   = 1019;
+	    int current_bbr = 1000;
+
+
+	    // search bad block and make bbr table
+	    for (int i_b=0;i_b<999;i_b++){
+	      rn.pageRead(0,rb,i_b,0,2048+128-1,1);
+	      if(rb[0]==0){
+		sprintf((char *)uart_tx_buff,"Bad block address : %d\r\n",i_b);
+		uart_puts(UART_ID,(const char*)uart_tx_buff);
+
+		// search replace bbr
+		int found_replaced = 0;
+		for ( ; current_bbr <= end_bbr; current_bbr++ ){
+		  rn.pageRead(0,rb,current_bbr,0,2048+128-1,1);
+		  if(rb[0]!=0)
+		    found_replaced = 1;
+		    break;
+		}
+		if (found_replaced==1) {
+		  broken_addr[bbr_entry] = i_b;
+		  replaced_addr[bbr_entry] = current_bbr;
+		  bbr_entry++;
+		  current_bbr++;
+		}
+		else {
+		  // TODO error
+		}
+	      }
+	    }
+
+	    // build bbt data is consists of 164 bytes.
+	    // magic number 0x55555555 4[bytes]
+	    buff[0] = 0x55;
+	    buff[1] = 0x55;
+	    buff[2] = 0x55;
+	    buff[3] = 0x55;
+	    // 8 [bytes / item]  * 20 [items] = 160[bytes]
+	    //  broken address int32
+	    //  replaced address int32
+	    for(int i=0;i<20;i++){
+	      if (i<bbr_entry){
+		buff[4+i*8+0]=broken_addr[i]&0xff;
+		buff[4+i*8+1]=(broken_addr[i]>>8)&0xff;
+		buff[4+i*8+2]=(broken_addr[i]>>16)&0xff;
+		buff[4+i*8+3]=(broken_addr[i]>>24)&0xff;
+		buff[4+i*8+4]=replaced_addr[i]&0xff;
+                buff[4+i*8+5]=(replaced_addr[i]>>8)&0xff;
+                buff[4+i*8+6]=(replaced_addr[i]>>16)&0xff;
+                buff[4+i*8+7]=(replaced_addr[i]>>24)&0xff;
+
+	      } else {
+		buff[4+i*8+0]=0xff;
+		buff[4+i*8+1]=0xff;
+		buff[4+i*8+2]=0xff;
+		buff[4+i*8+3]=0xff;
+		buff[4+i*8+4]=0xff;
+                buff[4+i*8+5]=0xff;
+                buff[4+i*8+6]=0xff;
+                buff[4+i*8+7]=0xff;
+	      }
+	    }
+
+	    // search available bbt block
+	    int found_available_bbt_block = 0;
+	    for(int i_b=1020;i_b<1024;i_b++){
+	      rn.pageRead(0,rb,i_b,0,2048+128-1,1);
+              if(rb[0]!=0){
+		rn.erase(0,i_b);
+		rn.pageProgram(0,buff,i_b,0,0,164);
+		bbm_addr = i_b;
+		sprintf((char *)uart_tx_buff,"wrote bbt table at %d\r\n",i_b);
+		uart_puts(UART_ID,(const char*)uart_tx_buff);
+		break;
+	      }
+	    }
+	    
+	  }
+	  else {
+	    sprintf((char *)uart_tx_buff,"found bbt table at %d\r\n",bbm_addr);
+	    uart_puts(UART_ID,(const char*)uart_tx_buff);
+
+	    // read from bbt
+	    rn.pageRead(0,buff,bbm_addr,0,0,164);
+	    for(int i=0;i<20;i++){
+	      broken_addr[i]  = buff[4+i*8+0];
+	      broken_addr[i] |= buff[4+i*8+1]<<8;
+	      broken_addr[i] |= buff[4+i*8+2]<<16;
+	      broken_addr[i] |= buff[4+i*8+2]<<24;
+	      replaced_addr[i]  = buff[4+i*8+4];
+	      replaced_addr[i] |= buff[4+i*8+5]<<8;
+	      replaced_addr[i] |= buff[4+i*8+6]<<16;
+	      replaced_addr[i] |= buff[4+i*8+6]<<24;
+	    }
+
+	    for(int i=0;i<20;i++){
+	      if (broken_addr[i]<1000 && replaced_addr[i]<1020 && replaced_addr[i]>=1000) {
+		sprintf((char *)uart_tx_buff,"%d -> %d\r\n",broken_addr[i],replaced_addr[i]);
+                uart_puts(UART_ID,(const char*)uart_tx_buff);
+	      }
+	    }
+	  }  
 	}
-	// TODO : add page program and erase for testing .... 
-	// else if ...
-	// else if ...	
+
 	cmd_len=0;	
       } else {
 	command_buff[cmd_len]=rxd;
