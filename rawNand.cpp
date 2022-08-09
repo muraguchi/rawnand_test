@@ -8,9 +8,9 @@ void rawNand::reset(uint8_t cs){
 
   // CS assert
   if(cs==0) {
-    m_rawNandLlabst.setCsIo(1,0);
-  } else if (cs==1) {
     m_rawNandLlabst.setCsIo(0,1);
+  } else if (cs==1) {
+    m_rawNandLlabst.setCsIo(1,0);
   }
   
   // CLE=1,ALE=0,WEB=0
@@ -41,9 +41,9 @@ void rawNand::reset(uint8_t cs){
 void rawNand::idRead(uint8_t cs, uint8_t * readData) {
   // CS assert
   if(cs==0) {
-    m_rawNandLlabst.setCsIo(1,0);
-  } else if (cs==1) {
     m_rawNandLlabst.setCsIo(0,1);
+  } else if (cs==1) {
+    m_rawNandLlabst.setCsIo(1,0);
   }
 
   // CLE=1,ALE=0,WEB=0
@@ -120,9 +120,9 @@ uint8_t rawNand::statusRead(uint8_t cs) {
   }
 
   if(cs==0) {
-    m_rawNandLlabst.setCsIo(1,0);
-  } else if (cs==1) {
     m_rawNandLlabst.setCsIo(0,1);
+  } else if (cs==1) {
+    m_rawNandLlabst.setCsIo(1,0);
   }
 
   // CLE=1,ALE=0,WEB=0
@@ -189,9 +189,9 @@ void rawNand::pageRead(uint8_t cs, uint8_t * readData, uint16_t blockAddress, ui
 
   // CS assert
   if(cs==0) {
-    m_rawNandLlabst.setCsIo(1,0);
-  } else if (cs==1) {
     m_rawNandLlabst.setCsIo(0,1);
+  } else if (cs==1) {
+    m_rawNandLlabst.setCsIo(1,0);
   }
 
   // CLE=1,ALE=0,WEB=0
@@ -337,9 +337,9 @@ uint8_t  rawNand::pageProgram(uint8_t cs, const uint8_t *writeData, uint16_t blo
 
   // CS assert
   if(cs==0) {
-    m_rawNandLlabst.setCsIo(1,0);
-  } else if (cs==1) {
     m_rawNandLlabst.setCsIo(0,1);
+  } else if (cs==1) {
+    m_rawNandLlabst.setCsIo(1,0);
   }
 
   // CLE=1,ALE=0,WEB=0
@@ -485,9 +485,9 @@ uint8_t  rawNand::erase(uint8_t cs, uint16_t blockAddress) {
 
   // CS assert
   if(cs==0) {
-    m_rawNandLlabst.setCsIo(1,0);
-  } else if (cs==1) {
     m_rawNandLlabst.setCsIo(0,1);
+  } else if (cs==1) {
+    m_rawNandLlabst.setCsIo(1,0);
   }
 
   // CLE=1,ALE=0,WEB=0
